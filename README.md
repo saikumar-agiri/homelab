@@ -26,7 +26,7 @@ Personal homelab running on a single Ubuntu machine using Docker, K3s (Lightweig
                                       │
                               ┌───────┴────────┐
                               │  chaos-creation │
-                              │  192.168.0.112  │
+                              │  │
                               └───────┬────────┘
                                       │
                     ┌─────────────────┴──────────────────┐
