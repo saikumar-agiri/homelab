@@ -1,39 +1,76 @@
 ---
-- name: Deploy Jellyfin
+- name: Redeploy Jellyfin with correct media path
   hosts: homelab
   become: no
 
   tasks:
-    - name: Create media directory on host
-      become: yes
-      file:
-        path: "{{ item }}"
-        state: directory
-        owner: shunya
-        group: shunya
-        mode: '0755'
-      loop:
-        - /mnt/media
-        - /mnt/media/movies
-        - /mnt/media/tvshows
-        - /mnt/media/music
-        - /mnt/jellyfin/config
+    - name: Uninstall existing Jellyfin
+      shell: helm uninstall jellyfin -n media
 
-    - name: Deploy Jellyfin via Helm
+    - name: Wait for pod to terminate
+      shell: kubectl wait --for=delete pod -l app.kubernetes.io/name=jellyfin -n media --timeout=60s
+      ignore_errors: yes
+
+    - name: Delete old PVCs
       shell: |
-        helm upgrade --install jellyfin \
-          jellyfin/jellyfin \
-          --namespace media \
-          --set persistence.config.enabled=true \
-          --set persistence.config.size=2Gi \
-          --set persistence.media.enabled=true \
-          --set persistence.media.existingClaim="" \
-          --set extraVolumes[0].name=media \
-          --set extraVolumes[0].hostPath.path=/mnt/media \
-          --set extraVolumes[0].hostPath.type=Directory \
-          --set extraVolumeMounts[0].name=media \
-          --set extraVolumeMounts[0].mountPath=/media \
-          --wait --timeout 5m
+        kubectl delete pvc jellyfin-media -n media --ignore-not-found=true
+        kubectl delete pvc jellyfin-config -n media --ignore-not-found=true
+
+    - name: Deploy Jellyfin with hostPath
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: jellyfin
+          namespace: media
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: jellyfin
+          template:
+            metadata:
+              labels:
+                app: jellyfin
+            spec:
+              containers:
+                - name: jellyfin
+                  image: jellyfin/jellyfin:latest
+                  ports:
+                    - containerPort: 8096
+                  volumeMounts:
+                    - name: config
+                      mountPath: /config
+                    - name: media
+                      mountPath: /media
+              volumes:
+                - name: config
+                  hostPath:
+                    path: /mnt/jellyfin/config
+                    type: Directory
+                - name: media
+                  hostPath:
+                    path: /mnt/media
+                    type: Directory
+        YAML
+
+    - name: Create Jellyfin service
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: jellyfin
+          namespace: media
+        spec:
+          selector:
+            app: jellyfin
+          ports:
+            - port: 8096
+              targetPort: 8096
+          type: ClusterIP
+        YAML
 
     - name: Create Jellyfin IngressRoute
       shell: |
@@ -54,17 +91,20 @@
                   port: 8096
         YAML
 
-    - name: Add jellyfin DNS entry to /etc/hosts
-      become: yes
-      lineinfile:
-        path: /etc/hosts
-        line: "127.0.0.1 jellyfin.local"
-        state: present
+    - name: Wait for Jellyfin to be ready
+      shell: kubectl wait --for=condition=ready pod -l app=jellyfin -n media --timeout=120s
 
-    - name: Check Jellyfin pods
-      shell: kubectl get pods -n media
-      register: jellyfin_pods
+    - name: Verify media mount
+      shell: kubectl exec -n media $(kubectl get pods -n media -l app=jellyfin -o jsonpath='{.items[0].metadata.name}') -- ls /media
 
-    - name: Show Jellyfin pods
+    - name: Show media contents
       debug:
-        msg: "{{ jellyfin_pods.stdout }}"
+        msg: "Media folder contents verified"
+
+    - name: Check pods
+      shell: kubectl get pods -n media
+      register: pods
+
+    - name: Show pods
+      debug:
+        msg: "{{ pods.stdout }}"
