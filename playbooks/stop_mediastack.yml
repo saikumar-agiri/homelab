@@ -1,0 +1,31 @@
+---
+- name: Stop and Remove Media Download Stack
+  hosts: homelab
+  become: no
+
+  tasks:
+    - name: Delete Radarr
+      shell: |
+        kubectl delete deployment radarr -n media --ignore-not-found=true
+        kubectl delete service radarr -n media --ignore-not-found=true
+
+    - name: Delete Prowlarr
+      shell: |
+        kubectl delete deployment prowlarr -n media --ignore-not-found=true
+        kubectl delete service prowlarr -n media --ignore-not-found=true
+
+    - name: Delete qBittorrent
+      shell: |
+        kubectl delete deployment qbittorrent -n media --ignore-not-found=true
+        kubectl delete service qbittorrent -n media --ignore-not-found=true
+
+    - name: Delete IngressRoutes
+      shell: kubectl delete ingressroute mediastack -n media --ignore-not-found=true
+
+    - name: Confirm all removed
+      shell: kubectl get pods -n media
+      register: media_pods
+
+    - name: Show remaining pods
+      debug:
+        msg: "{{ media_pods.stdout }}"

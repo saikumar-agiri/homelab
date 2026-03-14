@@ -1,0 +1,67 @@
+---
+- name: Install K3s, kubectl and Helm
+  hosts: homelab
+  become: yes
+
+  tasks:
+    - name: Download and install K3s
+      shell: curl -sfL https://get.k3s.io | sh -
+      args:
+        creates: /usr/local/bin/k3s
+
+    - name: Wait for K3s to be ready
+      wait_for:
+        path: /etc/rancher/k3s/k3s.yaml
+        state: present
+        timeout: 60
+
+    - name: Create .kube directory for user
+      file:
+        path: /home/shunya/.kube
+        state: directory
+        owner: shunya
+        group: shunya
+        mode: '0755'
+
+    - name: Copy K3s config to user kubeconfig
+      copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: /home/shunya/.kube/config
+        owner: shunya
+        group: shunya
+        mode: '0600'
+        remote_src: yes
+
+    - name: Install kubectl via snap
+      snap:
+        name: kubectl
+        classic: yes
+        state: present
+
+    - name: Download Helm install script
+      get_url:
+        url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+        dest: /tmp/get-helm.sh
+        mode: '0755'
+
+    - name: Install Helm
+      shell: /tmp/get-helm.sh
+      args:
+        creates: /usr/local/bin/helm
+
+    - name: Verify K3s is running
+      shell: k3s kubectl get nodes
+      register: k3s_nodes
+
+    - name: Show K3s nodes
+      debug:
+        msg: "{{ k3s_nodes.stdout }}"
+
+    - name: Verify Helm version
+      shell: helm version --short
+      register: helm_version
+      become: no
+
+    - name: Show Helm version
+      debug:
+        msg: "{{ helm_version.stdout }}"

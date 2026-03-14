@@ -1,0 +1,81 @@
+---
+- name: Deploy Stirling PDF
+  hosts: homelab
+  become: no
+
+  tasks:
+    - name: Deploy Stirling PDF
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: stirling-pdf
+          namespace: tools
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: stirling-pdf
+          template:
+            metadata:
+              labels:
+                app: stirling-pdf
+            spec:
+              containers:
+                - name: stirling-pdf
+                  image: frooodle/s-pdf:latest
+                  ports:
+                    - containerPort: 8080
+        YAML
+
+    - name: Create Stirling PDF service
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: stirling-pdf
+          namespace: tools
+        spec:
+          selector:
+            app: stirling-pdf
+          ports:
+            - port: 8080
+              targetPort: 8080
+          type: ClusterIP
+        YAML
+
+    - name: Create Stirling PDF IngressRoute
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: traefik.io/v1alpha1
+        kind: IngressRoute
+        metadata:
+          name: stirling-pdf
+          namespace: tools
+        spec:
+          entryPoints:
+            - web
+          routes:
+            - match: Host(\`pdf.local\`)
+              kind: Rule
+              services:
+                - name: stirling-pdf
+                  port: 8080
+        YAML
+
+    - name: Add PDF DNS entry to /etc/hosts
+      become: yes
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 pdf.local"
+        state: present
+
+    - name: Check Stirling PDF pods
+      shell: kubectl get pods -n tools
+      register: pdf_pods
+
+    - name: Show Stirling PDF pods
+      debug:
+        msg: "{{ pdf_pods.stdout }}"

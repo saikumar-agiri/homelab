@@ -1,0 +1,276 @@
+---
+- name: Start Media Download Stack
+  hosts: homelab
+  become: no
+
+  tasks:
+    - name: Create downloads directory
+      become: yes
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: shunya
+        group: shunya
+        mode: '0755'
+      loop:
+        - /mnt/media/downloads
+        - /mnt/media/downloads/incomplete
+        - /mnt/config/radarr
+        - /mnt/config/prowlarr
+        - /mnt/config/qbittorrent
+
+    - name: Deploy qBittorrent
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: qbittorrent
+          namespace: media
+          labels:
+            app: qbittorrent
+            temp: "true"
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: qbittorrent
+          template:
+            metadata:
+              labels:
+                app: qbittorrent
+            spec:
+              containers:
+                - name: qbittorrent
+                  image: lscr.io/linuxserver/qbittorrent:latest
+                  env:
+                    - name: PUID
+                      value: "1000"
+                    - name: PGID
+                      value: "1000"
+                    - name: TZ
+                      value: "Asia/Kolkata"
+                    - name: WEBUI_PORT
+                      value: "8080"
+                  ports:
+                    - containerPort: 8080
+                    - containerPort: 6881
+                  volumeMounts:
+                    - name: config
+                      mountPath: /config
+                    - name: downloads
+                      mountPath: /downloads
+              volumes:
+                - name: config
+                  hostPath:
+                    path: /mnt/config/qbittorrent
+                    type: Directory
+                - name: downloads
+                  hostPath:
+                    path: /mnt/media/downloads
+                    type: Directory
+        YAML
+
+    - name: Deploy qBittorrent service
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: qbittorrent
+          namespace: media
+        spec:
+          selector:
+            app: qbittorrent
+          ports:
+            - name: webui
+              port: 8080
+              targetPort: 8080
+          type: ClusterIP
+        YAML
+
+    - name: Deploy Prowlarr
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: prowlarr
+          namespace: media
+          labels:
+            app: prowlarr
+            temp: "true"
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: prowlarr
+          template:
+            metadata:
+              labels:
+                app: prowlarr
+            spec:
+              containers:
+                - name: prowlarr
+                  image: lscr.io/linuxserver/prowlarr:latest
+                  env:
+                    - name: PUID
+                      value: "1000"
+                    - name: PGID
+                      value: "1000"
+                    - name: TZ
+                      value: "Asia/Kolkata"
+                  ports:
+                    - containerPort: 9696
+                  volumeMounts:
+                    - name: config
+                      mountPath: /config
+              volumes:
+                - name: config
+                  hostPath:
+                    path: /mnt/config/prowlarr
+                    type: Directory
+        YAML
+
+    - name: Deploy Prowlarr service
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: prowlarr
+          namespace: media
+        spec:
+          selector:
+            app: prowlarr
+          ports:
+            - name: webui
+              port: 9696
+              targetPort: 9696
+          type: ClusterIP
+        YAML
+
+    - name: Deploy Radarr
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: radarr
+          namespace: media
+          labels:
+            app: radarr
+            temp: "true"
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: radarr
+          template:
+            metadata:
+              labels:
+                app: radarr
+            spec:
+              containers:
+                - name: radarr
+                  image: lscr.io/linuxserver/radarr:latest
+                  env:
+                    - name: PUID
+                      value: "1000"
+                    - name: PGID
+                      value: "1000"
+                    - name: TZ
+                      value: "Asia/Kolkata"
+                  ports:
+                    - containerPort: 7878
+                  volumeMounts:
+                    - name: config
+                      mountPath: /config
+                    - name: movies
+                      mountPath: /movies
+                    - name: downloads
+                      mountPath: /downloads
+              volumes:
+                - name: config
+                  hostPath:
+                    path: /mnt/config/radarr
+                    type: Directory
+                - name: movies
+                  hostPath:
+                    path: /mnt/media/movies
+                    type: Directory
+                - name: downloads
+                  hostPath:
+                    path: /mnt/media/downloads
+                    type: Directory
+        YAML
+
+    - name: Deploy Radarr service
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: radarr
+          namespace: media
+        spec:
+          selector:
+            app: radarr
+          ports:
+            - name: webui
+              port: 7878
+              targetPort: 7878
+          type: ClusterIP
+        YAML
+
+    - name: Create IngressRoutes
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: traefik.io/v1alpha1
+        kind: IngressRoute
+        metadata:
+          name: mediastack
+          namespace: media
+        spec:
+          entryPoints:
+            - web
+          routes:
+            - match: Host(\`radarr.local\`)
+              kind: Rule
+              services:
+                - name: radarr
+                  port: 7878
+            - match: Host(\`prowlarr.local\`)
+              kind: Rule
+              services:
+                - name: prowlarr
+                  port: 9696
+            - match: Host(\`qbit.local\`)
+              kind: Rule
+              services:
+                - name: qbittorrent
+                  port: 8080
+        YAML
+
+    - name: Add DNS entries to /etc/hosts
+      become: yes
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 {{ item }}"
+        state: present
+      loop:
+        - radarr.local
+        - prowlarr.local
+        - qbit.local
+
+    - name: Wait for pods to be ready
+      shell: kubectl wait --for=condition=ready pod -l temp=true -n media --timeout=120s
+      register: wait_result
+
+    - name: Check all media stack pods
+      shell: kubectl get pods -n media
+      register: media_pods
+
+    - name: Show pods
+      debug:
+        msg: "{{ media_pods.stdout }}"

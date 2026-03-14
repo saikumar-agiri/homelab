@@ -1,0 +1,33 @@
+---
+- name: Deploy Portainer
+  hosts: homelab
+  become: yes
+
+  tasks:
+    - name: Create Portainer volume
+      shell: docker volume create portainer_data
+
+    - name: Run Portainer container
+      shell: |
+        docker run -d \
+          --name portainer \
+          --restart=always \
+          -p 9000:9000 \
+          -p 9443:9443 \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          -v portainer_data:/data \
+          portainer/portainer-ce:latest
+
+    - name: Add portainer DNS entry to /etc/hosts
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 portainer.local"
+        state: present
+
+    - name: Check Portainer is running
+      shell: docker ps | grep portainer
+      register: portainer_status
+
+    - name: Show Portainer status
+      debug:
+        msg: "{{ portainer_status.stdout }}"

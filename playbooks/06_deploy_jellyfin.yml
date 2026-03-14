@@ -1,0 +1,70 @@
+---
+- name: Deploy Jellyfin
+  hosts: homelab
+  become: no
+
+  tasks:
+    - name: Create media directory on host
+      become: yes
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: shunya
+        group: shunya
+        mode: '0755'
+      loop:
+        - /mnt/media
+        - /mnt/media/movies
+        - /mnt/media/tvshows
+        - /mnt/media/music
+        - /mnt/jellyfin/config
+
+    - name: Deploy Jellyfin via Helm
+      shell: |
+        helm upgrade --install jellyfin \
+          jellyfin/jellyfin \
+          --namespace media \
+          --set persistence.config.enabled=true \
+          --set persistence.config.size=2Gi \
+          --set persistence.media.enabled=true \
+          --set persistence.media.existingClaim="" \
+          --set extraVolumes[0].name=media \
+          --set extraVolumes[0].hostPath.path=/mnt/media \
+          --set extraVolumes[0].hostPath.type=Directory \
+          --set extraVolumeMounts[0].name=media \
+          --set extraVolumeMounts[0].mountPath=/media \
+          --wait --timeout 5m
+
+    - name: Create Jellyfin IngressRoute
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: traefik.io/v1alpha1
+        kind: IngressRoute
+        metadata:
+          name: jellyfin
+          namespace: media
+        spec:
+          entryPoints:
+            - web
+          routes:
+            - match: Host(\`jellyfin.local\`)
+              kind: Rule
+              services:
+                - name: jellyfin
+                  port: 8096
+        YAML
+
+    - name: Add jellyfin DNS entry to /etc/hosts
+      become: yes
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 jellyfin.local"
+        state: present
+
+    - name: Check Jellyfin pods
+      shell: kubectl get pods -n media
+      register: jellyfin_pods
+
+    - name: Show Jellyfin pods
+      debug:
+        msg: "{{ jellyfin_pods.stdout }}"

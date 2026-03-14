@@ -1,0 +1,49 @@
+---
+- name: Deploy Pi-hole
+  hosts: homelab
+  become: no
+
+  tasks:
+    - name: Deploy Pi-hole via Helm
+      shell: |
+        helm upgrade --install pihole \
+          mojo2600/pihole \
+          --namespace networking \
+          --set webPassword=homelab123 \
+          --set serviceWeb.type=ClusterIP \
+          --set serviceDns.type=ClusterIP \
+          --wait --timeout 3m
+
+    - name: Create Pi-hole IngressRoute
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: traefik.io/v1alpha1
+        kind: IngressRoute
+        metadata:
+          name: pihole
+          namespace: networking
+        spec:
+          entryPoints:
+            - web
+          routes:
+            - match: Host(\`pihole.local\`)
+              kind: Rule
+              services:
+                - name: pihole-web
+                  port: 80
+        YAML
+
+    - name: Add pihole DNS entry to /etc/hosts
+      become: yes
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 pihole.local"
+        state: present
+
+    - name: Check Pi-hole pods
+      shell: kubectl get pods -n networking
+      register: pihole_pods
+
+    - name: Show Pi-hole pods
+      debug:
+        msg: "{{ pihole_pods.stdout }}"

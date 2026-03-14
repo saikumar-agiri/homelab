@@ -1,0 +1,176 @@
+---
+- name: Deploy Homepage Dashboard
+  hosts: homelab
+  become: no
+
+  tasks:
+    - name: Create homepage config directory
+      become: yes
+      file:
+        path: /mnt/homepage
+        state: directory
+        owner: shunya
+        group: shunya
+        mode: '0755'
+
+    - name: Create homepage services config
+      copy:
+        dest: /mnt/homepage/services.yaml
+        content: |
+          - Monitoring:
+              - Grafana:
+                  href: http://grafana.local
+                  description: Metrics & Dashboards
+                  icon: grafana.png
+              - Prometheus:
+                  href: http://prometheus.local
+                  description: Metrics Collector
+                  icon: prometheus.png
+              - Uptime Kuma:
+                  href: http://uptime.local
+                  description: Service Uptime Monitor
+                  icon: uptime-kuma.png
+          - Networking:
+              - Pi-hole:
+                  href: http://pihole.local/admin
+                  description: Network Ad Blocker
+                  icon: pi-hole.png
+          - Media:
+              - Jellyfin:
+                  href: http://jellyfin.local
+                  description: Media Server
+                  icon: jellyfin.png
+          - Tools:
+              - Stirling PDF:
+                  href: http://pdf.local
+                  description: PDF Tools
+                  icon: stirling-pdf.png
+
+    - name: Create homepage settings config
+      copy:
+        dest: /mnt/homepage/settings.yaml
+        content: |
+          title: Chaos Creation Homelab
+          theme: dark
+          color: slate
+          headerStyle: clean
+          layout:
+            Monitoring:
+              style: row
+              columns: 3
+            Networking:
+              style: row
+            Media:
+              style: row
+            Tools:
+              style: row
+
+    - name: Create homepage bookmarks config
+      copy:
+        dest: /mnt/homepage/bookmarks.yaml
+        content: |
+          - Quick Links:
+              - GitHub:
+                  href: https://github.com
+              - Ansible Docs:
+                  href: https://docs.ansible.com
+              - K3s Docs:
+                  href: https://docs.k3s.io
+
+    - name: Create homepage widgets config
+      copy:
+        dest: /mnt/homepage/widgets.yaml
+        content: |
+          - resources:
+              cpu: true
+              memory: true
+              disk: /
+          - datetime:
+              text_size: xl
+              format:
+                dateStyle: long
+                timeStyle: short
+
+    - name: Deploy Homepage
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: homepage
+          namespace: dashboard
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: homepage
+          template:
+            metadata:
+              labels:
+                app: homepage
+            spec:
+              containers:
+                - name: homepage
+                  image: ghcr.io/gethomepage/homepage:latest
+                  ports:
+                    - containerPort: 3000
+                  volumeMounts:
+                    - name: config
+                      mountPath: /app/config
+              volumes:
+                - name: config
+                  hostPath:
+                    path: /mnt/homepage
+                    type: Directory
+        YAML
+
+    - name: Create Homepage service
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: homepage
+          namespace: dashboard
+        spec:
+          selector:
+            app: homepage
+          ports:
+            - port: 3000
+              targetPort: 3000
+          type: ClusterIP
+        YAML
+
+    - name: Create Homepage IngressRoute
+      shell: |
+        kubectl apply -f - <<YAML
+        apiVersion: traefik.io/v1alpha1
+        kind: IngressRoute
+        metadata:
+          name: homepage
+          namespace: dashboard
+        spec:
+          entryPoints:
+            - web
+          routes:
+            - match: Host(\`home.local\`)
+              kind: Rule
+              services:
+                - name: homepage
+                  port: 3000
+        YAML
+
+    - name: Add homepage DNS entry to /etc/hosts
+      become: yes
+      lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 home.local"
+        state: present
+
+    - name: Check Homepage pods
+      shell: kubectl get pods -n dashboard
+      register: homepage_pods
+
+    - name: Show Homepage pods
+      debug:
+        msg: "{{ homepage_pods.stdout }}"

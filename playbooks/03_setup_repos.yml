@@ -1,0 +1,46 @@
+---
+- name: Setup Namespaces and Helm Repos
+  hosts: homelab
+  become: no
+
+  tasks:
+    - name: Create monitoring namespace
+      shell: kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Create networking namespace
+      shell: kubectl create namespace networking --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Create media namespace
+      shell: kubectl create namespace media --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Create tools namespace
+      shell: kubectl create namespace tools --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Create dashboard namespace
+      shell: kubectl create namespace dashboard --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Add Prometheus community Helm repo
+      shell: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+    - name: Add Grafana Helm repo
+      shell: helm repo add grafana https://grafana.github.io/helm-charts
+
+    - name: Add Pi-hole Helm repo
+      shell: helm repo add mojo2600 https://mojo2600.github.io/pihole-kubernetes/
+
+    - name: Add Jellyfin Helm repo
+      shell: helm repo add jellyfin https://jellyfin.github.io/jellyfin-helm
+
+    - name: Add Nextcloud Helm repo
+      shell: helm repo add nextcloud https://nextcloud.github.io/helm/
+
+    - name: Update all Helm repos
+      shell: helm repo update
+
+    - name: Show all namespaces
+      shell: kubectl get namespaces
+      register: namespaces
+
+    - name: Display namespaces
+      debug:
+        msg: "{{ namespaces.stdout }}"
