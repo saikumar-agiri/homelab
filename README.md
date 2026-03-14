@@ -15,7 +15,7 @@ Personal homelab running on a single Ubuntu machine using Docker, K3s (Lightweig
 | **GPU** | Radeon Vega 8 (integrated) |
 | **OS** | Ubuntu 24.04.4 LTS |
 | **Kernel** | 6.17.0-19-generic |
-| **IP** | 192.168.0.112 |
+
 
 ---
 
