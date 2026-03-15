@@ -116,7 +116,7 @@ pip3 install kubernetes --break-system-packages
 
 ### Clone & Configure
 ```bash
-git clone https://github.com/yourusername/homelab.git
+git clone https://github.com/saikumar-agiri/homelab.git
 cd homelab
 
 # Copy and configure environment
