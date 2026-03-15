@@ -19,6 +19,11 @@
         kubectl delete deployment qbittorrent -n media --ignore-not-found=true
         kubectl delete service qbittorrent -n media --ignore-not-found=true
 
+    - name: Delete Gluetun VPN
+      shell: |
+        kubectl delete deployment gluetun -n media --ignore-not-found=true
+        kubectl delete service gluetun -n media --ignore-not-found=true
+
     - name: Delete IngressRoutes
       shell: kubectl delete ingressroute mediastack -n media --ignore-not-found=true
 

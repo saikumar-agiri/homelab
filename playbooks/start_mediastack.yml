@@ -54,7 +54,6 @@
                       value: "8080"
                   ports:
                     - containerPort: 8080
-                    - containerPort: 6881
                   volumeMounts:
                     - name: config
                       mountPath: /config
@@ -264,8 +263,7 @@
         - qbit.local
 
     - name: Wait for pods to be ready
-      shell: kubectl wait --for=condition=ready pod -l temp=true -n media --timeout=120s
-      register: wait_result
+      shell: sleep 30
 
     - name: Check all media stack pods
       shell: kubectl get pods -n media
