@@ -40,7 +40,7 @@
 | **Disk** | 500GB HDD |
 | **GPU** | Radeon Vega 8 (integrated) |
 | **OS** | Ubuntu 24.04.4 LTS |
-| **IP** | 192.168.0.112 (static) |
+| **IP** | 192.168.x.x (static) |
 
 ---
 
