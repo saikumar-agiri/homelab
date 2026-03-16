@@ -2,7 +2,7 @@
 
 # 🏠 chaos-creation homelab
 
-![Last Commit](https://img.shields.io/github/last-commit/yourusername/homelab?style=flat-square&color=blue)
+![Last Commit](https://img.shields.io/github/last-commit/saikumar-agiri/homelab?style=flat-square&color=blue)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 ![K3s](https://img.shields.io/badge/K3s-v1.34.5-orange?style=flat-square&logo=kubernetes)
 ![Ansible](https://img.shields.io/badge/Ansible-2.20.3-red?style=flat-square&logo=ansible)
@@ -11,7 +11,6 @@
 
 *A fully automated homelab running on a single Ubuntu machine*
 
-<!-- SCREENSHOT: Add screenshot of your Homepage dashboard here -->
 ![Dashboard Preview](docs/images/dashboard.png)
 
 </div>
@@ -23,10 +22,12 @@
 - [Hardware](#hardware)
 - [Architecture](#architecture)
 - [Stack](#stack)
+- [Screenshots](#screenshots)
 - [Quick Start](#quick-start)
 - [Services](#services)
 - [Media Management](#media-management)
-- [What's Next](#whats-next)
+- [Useful Commands](#useful-commands)
+- [Whats Next](#whats-next)
 
 ---
 
@@ -40,20 +41,17 @@
 | **Disk** | 500GB HDD |
 | **GPU** | Radeon Vega 8 (integrated) |
 | **OS** | Ubuntu 24.04.4 LTS |
-| **IP** | 192.168.x.x (static) |
+| **IP** | 192.168.0.112 (static) |
 
 ---
 
 ## 🏗️ Architecture
-
-<!-- SCREENSHOT: Add architecture diagram here -->
-![Architecture](docs/images/architecture.png)
 ```
                     🌐 Home Network (192.168.0.x)
                                  │
                          ┌───────┴────────┐
                          │  chaos-creation │
-                         │  192.168.x.x  │
+                         │  192.168.0.112  │
                          └───────┬────────┘
                                  │
                ┌─────────────────┴──────────────────┐
@@ -97,17 +95,34 @@
 
 ---
 
+## 📸 Screenshots
+
+### 🏠 Homepage Dashboard
+![Dashboard](docs/images/dashboard.png)
+
+### 📊 Grafana — System Stats
+![Grafana System](docs/images/grafana-system-stats.png)
+
+### 📊 Grafana — K3s Cluster
+![Grafana K3s](docs/images/grafana-k3s.png)
+
+### 🎬 Jellyfin Media Server
+![Jellyfin](docs/images/jellyfin.png)
+
+### 🔍 Uptime Kuma
+![Uptime Kuma](docs/images/uptime-kuma.png)
+
+### 🐳 Portainer
+![Portainer](docs/images/portainer.png)
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites
 ```bash
-# Update system
 sudo apt update && sudo apt upgrade -y
-
-# Install basic utilities
 sudo apt install -y curl wget git vim htop python3 python3-pip
-
-# Install Ansible
 sudo add-apt-repository --yes --update ppa:ansible/ansible
 sudo apt install -y ansible
 ansible-galaxy collection install kubernetes.core community.general
@@ -118,18 +133,13 @@ pip3 install kubernetes --break-system-packages
 ```bash
 git clone https://github.com/saikumar-agiri/homelab.git
 cd homelab
-
-# Copy and configure environment
 cp .env.example .env
-nano .env  # fill in your values
-
-# Update inventory with your details
+nano .env
 nano inventory/hosts.ini
 ```
 
 ### Deploy
 ```bash
-# Run playbooks in order
 cd playbooks/
 ansible-playbook -i ../inventory/hosts.ini 01_install_docker.yml --ask-become-pass
 ansible-playbook -i ../inventory/hosts.ini 02_install_k3s.yml --ask-become-pass
@@ -146,24 +156,16 @@ ansible-playbook -i ../inventory/hosts.ini 09_deploy_portainer.yml --ask-become-
 
 ## 🌐 Services
 
-<!-- SCREENSHOT: Add Grafana dashboard screenshot here -->
 ### 📊 Monitoring
-![Grafana]
-
 - **Grafana** — Beautiful metrics dashboards (Node Exporter ID: 1860, K3s ID: 15759)
 - **Prometheus** — Metrics collection with node exporter and kube state metrics
 - **Uptime Kuma** — Real-time service uptime monitoring
 
-<!-- SCREENSHOT: Add Jellyfin screenshot here -->
 ### 🎬 Media
-![Jellyfin](docs/images/jellyfin.png)
-
 - **Jellyfin** — Self hosted media server accessible on all home network devices
 - Accessible at `http://192.168.0.112:8096` from any device on your network
 
 ### 🔧 Management
-
-
 - **Portainer** — Visual Docker and K3s management
 - **Homepage** — Central dashboard for all services
 
@@ -172,7 +174,6 @@ ansible-playbook -i ../inventory/hosts.ini 09_deploy_portainer.yml --ask-become-
 ## 🎬 Media Management
 
 ### Adding Movies
-Drop files in the correct structure:
 ```
 /mnt/media/movies/
 └── Movie Name (Year)/
@@ -180,24 +181,16 @@ Drop files in the correct structure:
 ```
 
 ### Media Organizer Script
-Automatically organizes downloads:
 ```bash
 ~/homelab/scripts/organize_media.sh
 ```
 
-The script will:
-- Scan `~/Downloads` for movie files
-- Clean up torrent naming (remove quality tags, dots, etc.)
-- Ask you to confirm the movie name
-- Move to correct location with proper naming
-- Fix file permissions automatically
-
 ### Temp Download Stack
 ```bash
-# Spin up when needed
+# Spin up
 ansible-playbook -i inventory/hosts.ini playbooks/start_mediastack.yml --ask-become-pass
 
-# Tear down when done
+# Tear down
 ansible-playbook -i inventory/hosts.ini playbooks/stop_mediastack.yml --ask-become-pass
 ```
 
@@ -233,18 +226,24 @@ helm list -A
 
 ---
 
-## ⚠️ Next Steps
+## ⚠️ Whats Next
 
 ### 🔴 High Priority
-- [ ] **SSH setup** — access server from other devices
-- [ ] **Static IP** — already done ✅
-- [ ] **Tailscale** — secure remote access from anywhere
+- [ ] SSH setup
+- [ ] Tailscale — secure remote access
+- [ ] SSL/HTTPS — cert-manager + Let's Encrypt
 
 ### 🟡 Medium Priority
-- [ ] **SSL/HTTPS** — cert-manager + Let's Encrypt
-- [ ] **Grafana alerting** — notifications when services go down
-- [ ] **Pi-hole** — network-wide ad blocking (needs Docker --network=host)
-- [ ] **Ansible Vault** — encrypt credentials
+- [ ] Grafana alerting
+- [ ] Pi-hole — network-wide ad blocking
+- [ ] Ansible Vault — encrypt credentials
+
+### 🟢 Nice to Have
+- [ ] Nextcloud
+- [ ] Vaultwarden
+- [ ] Gitea
+- [ ] Watchtower
+- [ ] Loki + Promtail
 
 ---
 
@@ -258,12 +257,6 @@ helm list -A
 | Traefik Docs | https://doc.traefik.io/traefik |
 | Jellyfin Docs | https://jellyfin.org/docs |
 | Homepage Docs | https://gethomepage.dev |
-
----
-
-## 📄 License
-
-MIT License — see [LICENSE](LICENSE) for details
 
 ---
 
