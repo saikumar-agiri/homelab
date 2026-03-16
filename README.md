@@ -148,7 +148,7 @@ ansible-playbook -i ../inventory/hosts.ini 09_deploy_portainer.yml --ask-become-
 
 <!-- SCREENSHOT: Add Grafana dashboard screenshot here -->
 ### 📊 Monitoring
-![Grafana](docs/images/grafana.png)
+![Grafana]
 
 - **Grafana** — Beautiful metrics dashboards (Node Exporter ID: 1860, K3s ID: 15759)
 - **Prometheus** — Metrics collection with node exporter and kube state metrics
@@ -162,6 +162,8 @@ ansible-playbook -i ../inventory/hosts.ini 09_deploy_portainer.yml --ask-become-
 - Accessible at `http://192.168.0.112:8096` from any device on your network
 
 ### 🔧 Management
+
+
 - **Portainer** — Visual Docker and K3s management
 - **Homepage** — Central dashboard for all services
 
@@ -231,7 +233,7 @@ helm list -A
 
 ---
 
-## ⚠️ What's Missing / Next Steps
+## ⚠️ Next Steps
 
 ### 🔴 High Priority
 - [ ] **SSH setup** — access server from other devices
@@ -243,13 +245,6 @@ helm list -A
 - [ ] **Grafana alerting** — notifications when services go down
 - [ ] **Pi-hole** — network-wide ad blocking (needs Docker --network=host)
 - [ ] **Ansible Vault** — encrypt credentials
-
-### 🟢 Nice to Have
-- [ ] **Nextcloud** — personal cloud storage
-- [ ] **Vaultwarden** — self-hosted password manager
-- [ ] **Gitea** — self-hosted Git
-- [ ] **Watchtower** — auto update containers
-- [ ] **Loki + Promtail** — centralized logging
 
 ---
 
